@@ -1,0 +1,19 @@
+<!--
+  Interface d'annotation Label Studio (Settings > Labeling Interface > Code).
+  La source (société, secteur) n'est volontairement pas affichée :
+  on annote la phrase seule (docs/annotation_guidelines.md, section 1).
+-->
+<View>
+  <Header value="Du point de vue d'un investisseur, cette phrase est :"/>
+  <Text name="text" value="$text"/>
+  <Choices name="sentiment" toName="text" choice="single-radio" showInline="true" required="true">
+    <Choice value="Positif" alias="positive" hotkey="1"/>
+    <Choice value="Négatif" alias="negative" hotkey="2"/>
+    <Choice value="Neutre" alias="neutral" hotkey="3"/>
+    <Choice value="À exclure" alias="exclude" hotkey="4"/>
+  </Choices>
+  <Choices name="ambiguous" toName="text" choice="multiple" showInline="true">
+    <Choice value="Ambigu" alias="ambiguous"/>
+  </Choices>
+  <TextArea name="comment" toName="text" placeholder="Commentaire (optionnel)" rows="1" maxSubmissions="1"/>
+</View>

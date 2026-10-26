@@ -1,0 +1,31 @@
+# Chemins relatifs à la racine du projet
+paths:
+  sources: data/sources/sources.csv
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  annotations: data/annotations
+
+extract:
+  # Un bloc situé dans la marge haute ou basse (proportion de la hauteur de page)
+  # et présent sur au moins repeated_block_ratio des pages est considéré comme
+  # un en-tête ou un pied de page, et supprimé.
+  margin_ratio: 0.12
+  repeated_block_ratio: 0.5
+
+segment:
+  language: fr
+
+filter:
+  min_words: 6
+  max_words: 60
+  min_alpha_ratio: 0.6      # part minimale de lettres (élimine les lignes de tableau)
+  max_digit_ratio: 0.25     # part maximale de chiffres
+  require_final_punctuation: true   # élimine les titres, fragments et débuts de liste (« : »)
+  # Expressions régulières (insensibles à la casse) : toute phrase qui correspond est supprimée.
+  exclude_patterns:
+    - '\(en (milliers|millions|milliards) de (dirhams|DH|MAD)\)'   # titres de tableaux
+    - '^\d+(\.\d+)+\s'                                             # « 2.10 Dettes envers… »
+    - '^[IVX]+(\.\d+)+\s*[-–.]'                                    # « III.2.1 - Diversification… »
+    - '^sources?\s*:'                                              # « Source : Banques Centrales… »
+    - '^\d+\s*\*'                                                  # notes de bas de page « 2 * Treasury… »

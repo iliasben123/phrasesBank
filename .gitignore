@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# PDF et fichiers générés : non versionnés (taille, droits d'auteur).
+# Le registre data/sources/sources.csv, lui, est versionné.
+data/raw/*
+data/interim/*
+data/processed/*
+data/annotations/*
+!data/**/.gitkeep
+
+# Fichiers temporaires Office
+~$*

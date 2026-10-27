@@ -27,8 +27,9 @@ sources.csv ──►  download  ──►  extract  ──►  segment  ──�
 | 4. Filtrage | `filter.py` | phrases brutes | `data/processed/sentences.jsonl` |
 | 5. Échantillonnage | `sample.py` | phrases exploitables | `data/annotations/pilot_100.json` |
 | 6. Annotation | Label Studio (`configs/label_studio.xml`) | tâches | `data/annotations/` |
-| 7. Consolidation + accord | *à venir* | | |
-| 8. Baselines | *à venir* | | |
+| 7. Accord inter-annotateurs | `agreement.py` | exports Label Studio | kappa + `data/annotations/desaccords.csv` |
+| 8. Consolidation | *à venir* | | |
+| 9. Baselines | *à venir* | | |
 
 Les paramètres (seuils de filtrage, détection des en-têtes) sont dans `configs/pipeline.yaml`.
 
@@ -78,6 +79,7 @@ pip install -e ".[dev]"
    ```bash
    python -m phrasebank_fr run      # = extract + segment + filter
    ```
+   Chaque phrase reçoit un identifiant stable, dérivé de son texte (`iam_2026_s1_rapport_financier_f6439053`) : modifier les filtres ou les pages ne change pas l'identifiant des phrases conservées.
 4. Tirer un échantillon à annoter (même nombre de phrases par secteur, tirage reproductible) :
    ```bash
    python -m phrasebank_fr sample --n 100 --seed 42 --name pilot_100
@@ -93,9 +95,17 @@ label-studio start
 1. Créer un projet, puis dans **Settings > Labeling Interface > Code**, coller le contenu de `configs/label_studio.xml`.
 2. **Import** : charger `data/annotations/pilot_100.json`.
 3. Annoter en suivant [docs/annotation_guidelines.md](docs/annotation_guidelines.md). Raccourcis : `1` positif, `2` négatif, `3` neutre, `4` à exclure.
-4. **Export** au format JSON, dans `data/annotations/`.
+4. **Export** au format JSON, dans `data/annotations/` (un fichier par annotateur).
 
 Chaque annotateur travaille avec son propre compte, sans voir les labels des autres.
+
+## Accord inter-annotateurs
+
+```bash
+python -m phrasebank_fr agreement data/annotations/annotateur1.json data/annotations/annotateur2.json
+```
+
+Affiche la distribution des labels, l'accord brut, le kappa de Cohen (et de Fleiss à partir de 3 annotateurs) et la matrice de confusion. Les désaccords et les phrases marquées « ambigu » sont écrits dans `data/annotations/desaccords.csv`, à discuter pour faire évoluer le guide.
 
 ## Tests
 

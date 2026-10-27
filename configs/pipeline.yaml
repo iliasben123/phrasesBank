@@ -21,7 +21,7 @@ filter:
   max_words: 60
   min_alpha_ratio: 0.6      # part minimale de lettres (élimine les lignes de tableau)
   max_digit_ratio: 0.25     # part maximale de chiffres
-  require_final_punctuation: true   # élimine les titres, fragments et débuts de liste (« : »)
+  require_final_punctuation: true   # élimine les titres, fragments, débuts de liste (« : ») et questions (« ? »)
   # Expressions régulières (insensibles à la casse) : toute phrase qui correspond est supprimée.
   exclude_patterns:
     - '\(en (milliers|millions|milliards) de (dirhams|DH|MAD)\)'   # titres de tableaux
@@ -29,3 +29,6 @@ filter:
     - '^[IVX]+(\.\d+)+\s*[-–.]'                                    # « III.2.1 - Diversification… »
     - '^sources?\s*:'                                              # « Source : Banques Centrales… »
     - '^\d+\s*\*'                                                  # notes de bas de page « 2 * Treasury… »
+    - '\(\d\)\s+\S.*\(\d\)\s'                                      # suite de renvois « (2) Hors don séisme (3) … »
+    - '\d\s*%\s+\d+([.,]\d+)?\s*%'                                 # ligne de périmètre « 86.96% 86.96% IG »
+    - '\b(IG|IP|MEE|NC)\s*\(\*+\)'                                 # méthode de consolidation « NC(**) »

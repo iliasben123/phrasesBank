@@ -1,7 +1,8 @@
 import pymupdf
 
+from phrasebank_fr.agreement import cohen_kappa, fleiss_kappa, load_exports
 from phrasebank_fr.extract import extract_blocks
-from phrasebank_fr.filter import filter_sentences
+from phrasebank_fr.filter import filter_sentences, sentence_id
 from phrasebank_fr.sample import stratified_sample
 from phrasebank_fr.segment import segment_blocks
 from phrasebank_fr.sources import parse_pages
@@ -17,6 +18,9 @@ FILTER_CFG = {
         r"^\d+(\.\d+)+\s",
         r"^[IVX]+(\.\d+)+\s*[-–.]",
         r"^\d+\s*\*",
+        r"\(\d\)\s+\S.*\(\d\)\s",
+        r"\d\s*%\s+\d+([.,]\d+)?\s*%",
+        r"\b(IG|IP|MEE|NC)\s*\(\*+\)",
     ],
 }
 
@@ -101,8 +105,45 @@ def test_filter_drops_noise_and_assigns_ids():
         "Les dossiers physiques de la clientèle comprennent :",                # début de liste
         "2.10 Dettes envers la clientèle au 31 décembre 2023 (en milliers de dirhams)",  # titre de tableau
         "III.2.1 - Diversification par contrepartie et par secteur d'activité.",         # titre numéroté
+        "Un mot pour conclure sur les perspectives de LafargeHolcim Maroc ?",  # question
+        "Le coefficient d'exploitation était de 44,5% (2) Hors don séisme (3) Résultat net/Moyenne.",  # renvois
+        "Compagnie Minière des Guemassa Maroc 86.96% 86.96% IG (*)",           # périmètre
+        "Cie minière d'Oumejrane Maroc et filiales 100.00% NC(**)",            # périmètre
         "L'endettement net augmente sensiblement à fin septembre.",
     ]]
     kept = list(filter_sentences(rows, FILTER_CFG))
-    assert [r["id"] for r in kept] == ["iam_0001", "iam_0002"]
+    assert len(kept) == 2
     assert "endettement" in kept[1]["sentence"]
+    assert kept[0]["id"].startswith("iam_") and len(kept[0]["id"]) == len("iam_") + 8
+
+
+def test_sentence_id_is_stable_and_ignores_case_and_spaces():
+    assert sentence_id("iam", "Le CA progresse.") == sentence_id("iam", "le  ca progresse.")
+    assert sentence_id("iam", "Le CA progresse.") != sentence_id("iam", "Le CA recule.")
+
+
+def test_kappa():
+    a = ["positive", "negative", "neutral", "neutral"]
+    assert cohen_kappa(a, a) == 1.0
+    # Calcul à la main : po = 3/4 ; pe = (2*1 + 2*3) / 16 = 1/2 ; kappa = (3/4 - 1/2) / (1 - 1/2) = 0,5
+    assert cohen_kappa(["pos", "pos", "neg", "neg"], ["pos", "neg", "neg", "neg"]) == 0.5
+    assert fleiss_kappa([[x, x, x] for x in a]) == 1.0
+    assert fleiss_kappa([["n", "n"], ["n", "n"]]) == 1.0  # un seul label utilisé : pe = 1
+
+
+def _task(sid, label, by=1, ambiguous=False):
+    result = [{"from_name": "sentiment", "value": {"choices": [label]}}]
+    if ambiguous:
+        result.append({"from_name": "ambiguous", "value": {"choices": ["Ambigu"]}})
+    return {"data": {"sentence_id": sid, "text": f"phrase {sid}"},
+            "annotations": [{"completed_by": by, "result": result}]}
+
+
+def test_load_exports_one_file_per_annotator(tmp_path):
+    import json
+    (tmp_path / "alice.json").write_text(json.dumps([_task("s1", "positive"), _task("s2", "neutral", ambiguous=True)]))
+    (tmp_path / "bob.json").write_text(json.dumps([_task("s1", "positive", by=2), _task("s2", "negative", by=2)]))
+    labels, texts, ambiguous = load_exports([tmp_path / "alice.json", tmp_path / "bob.json"])
+    assert labels == {"alice": {"s1": "positive", "s2": "neutral"}, "bob": {"s1": "positive", "s2": "negative"}}
+    assert ambiguous == {"s2": {"alice"}}
+    assert texts["s1"] == "phrase s1"

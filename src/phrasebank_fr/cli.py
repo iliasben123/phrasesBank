@@ -1,10 +1,12 @@
 """Point d'entrée en ligne de commande : `python -m phrasebank_fr <commande>`."""
 import argparse
 import json
+from pathlib import Path
 
+from .agreement import load_exports, report
 from .config import load_config
 from .extract import extract_all
-from .filter import filter_sentences
+from .filter import filter_sentences, normalize
 from .jsonl import read_jsonl, write_jsonl
 from .sample import stratified_sample, to_label_studio
 from .segment import segment_blocks
@@ -50,6 +52,10 @@ def cmd_sample(cfg: dict, args: argparse.Namespace) -> None:
     sources = {row["doc_id"]: row for row in read_sources(cfg["paths"]["sources"])}
     sector_of = {doc_id: row["sector"] for doc_id, row in sources.items()}
     rows = read_jsonl(cfg["paths"]["processed"] / "sentences.jsonl")
+    # Phrases déjà tirées dans un lot précédent (comparées sur le texte, pas sur l'identifiant).
+    already = {normalize(t["data"]["text"]) for path in args.exclude
+               for t in json.loads(Path(path).read_text(encoding="utf-8"))}
+    rows = [row for row in rows if normalize(row["sentence"]) not in already]
     sample = stratified_sample(rows, sector_of, args.n, args.seed)
 
     out = cfg["paths"]["annotations"] / f"{args.name}.json"
@@ -66,6 +72,11 @@ def cmd_sample(cfg: dict, args: argparse.Namespace) -> None:
         print(f"  {sector} : {count}")
 
 
+def cmd_agreement(cfg: dict, args: argparse.Namespace) -> None:
+    labels, texts, ambiguous = load_exports([Path(p) for p in args.exports])
+    report(labels, texts, ambiguous, cfg["paths"]["annotations"] / f"{args.name}.csv")
+
+
 COMMANDS = {
     "download": (cmd_download, "télécharge les PDF déclarés dans sources.csv"),
     "extract": (cmd_extract, "PDF -> blocs de texte"),
@@ -73,6 +84,7 @@ COMMANDS = {
     "filter": (cmd_filter, "phrases -> phrases exploitables"),
     "run": (cmd_run, "extract + segment + filter"),
     "sample": (cmd_sample, "tire un échantillon stratifié par secteur, au format Label Studio"),
+    "agreement": (cmd_agreement, "accord inter-annotateurs (kappa) et liste des désaccords"),
 }
 
 
@@ -83,6 +95,10 @@ def main() -> None:
     parsers["sample"].add_argument("--n", type=int, default=100, help="nombre de phrases (défaut : 100)")
     parsers["sample"].add_argument("--seed", type=int, default=42, help="graine du tirage (défaut : 42)")
     parsers["sample"].add_argument("--name", default="pilot_100", help="nom du fichier de sortie")
+    parsers["sample"].add_argument("--exclude", nargs="*", default=[],
+                                   help="fichiers de tâches Label Studio dont les phrases ne doivent pas être tirées à nouveau")
+    parsers["agreement"].add_argument("exports", nargs="+", help="exports JSON de Label Studio (un par annotateur)")
+    parsers["agreement"].add_argument("--name", default="desaccords", help="nom du fichier CSV de sortie")
     args = parser.parse_args()
     COMMANDS[args.command][0](load_config(), args)
 
